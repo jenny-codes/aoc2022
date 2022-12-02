@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-require './runner'
+require './lib/runner'
 
 class DayNUMBER < Runner
   def do_puzzle1
