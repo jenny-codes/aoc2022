@@ -3,8 +3,8 @@
 task default: %w[run]
 
 desc 'Run the code in a given file. Defaults to today'
-task :run, [:source_code_path] do |_t, args|
-  code_path = args.source_code_path || "day#{Time.now.day}.rb"
+task :run, [:file] do |_t, args|
+  code_path = args.file || "day#{Time.now.day}.rb"
   raw_input = read_input(code_path)
   runner = fetch_runner(code_path).new(raw_input)
 
@@ -38,7 +38,7 @@ end
 def read_input(source_code_path)
   filename = /day\d*/.match(source_code_path)[0]
   input_path = "data/#{filename}.txt"
-  File.readlines(input_path).map(&:strip)
+  File.read(input_path)
 end
 
 def fetch_runner(source_code_path)
