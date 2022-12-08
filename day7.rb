@@ -3,9 +3,8 @@
 require './lib/runner'
 
 class Node
-  Fil = Struct.new(:name, :parent, :bytes)
-
-  Folder = Struct.new(:name, :parent, :children) do
+  File   = Data.define(:name, :bytes)
+  Folder = Data.define(:name, :parent, :children) do
     def bytes
       children.sum(&:bytes)
     end
@@ -15,94 +14,80 @@ class Node
     Folder.new(root, nil, [])
   end
 
-  def self.create(str)
-    case str
-    when /dir/
+  def self.create_from(str, parent)
+    if str.start_with?('dir')
       dirname = str.split(' ').last
-      Folder.new(dirname, nil, [])
-    when /^\d+/
-      m, size, filname = str.match(/(\d+) (.+)/).to_a
-      Fil.new(filname, nil, size.to_i)
+      Folder.new(dirname, parent, [])
     else
-      raise "What is this??? #{str}"
+      _, size, name = str.match(/(^\d+) (.+)/).to_a
+      File.new(name, size.to_i)
     end
   end
 
-  def self.traverse(node, &block)
-    return if node.is_a? Fil
+  def self.traverse(node, memo, &block)
+    return memo if node.is_a? File
 
-    node.children.map { traverse(_1, &block) }
-    yield(node)
+    memo = node.children.reduce(memo) { |submemo, subnode| traverse(subnode, submemo, &block) }
+    yield(memo, node)
   end
 end
 
 class Day7 < Runner
-  def build_tree
-    parse_cmd = ->(command) {
-      case command
-      when /^cd/
-        dirname = command.match(/cd (.+)/)[1]
-        [:cd, dirname]
-      when /^ls/
-        nodes = command
-                .split("\n")
-                .tap { _1.shift } # Discard the ls
-                .map { |node| Node.create(node) }
-        [:ls, nodes]
-      else
-        raise "What is this command?? \"#{command}\""
-      end
-    }
-
-    root = Node.init('/')
-    curr_node = root
-
-    @input.split("\n$ ").tap { _1.shift }.map(&parse_cmd).map do |cmd|
-      action, data = cmd
-      if action == :ls
-        data.each do |node|
-          node.parent = curr_node
-        end
-        curr_node.children = data
-      elsif action == :cd
-        curr_node = case data
-                    when '..'
-                      curr_node.parent
-                    when '/'
-                      root
-                    else
-                      curr_node.children.find { _1.name == data }
-                    end
-      end
-    end
-
-    root
-  end
+  FOLDER_MAX_BYTES = 100_000
+  MAX_USABLE_SPACE = 70_000_000 - 30_000_000
 
   def do_puzzle1
-    root = build_tree
-    total = 0
-    Node.traverse(root) do |node|
-      total += node.bytes if node.bytes <= 100_000
+    root = build_tree(@input)
+
+    Node.traverse(root, 0) do |total, node|
+      if node.bytes <= FOLDER_MAX_BYTES
+        total + node.bytes
+      else
+        total
+      end
     end
-    total
   end
 
   def do_puzzle2
-    root = build_tree
+    root = build_tree(@input)
 
-    current_free = 70_000_000 - root.bytes
-    target_min_above = 30_000_000 - current_free
+    target_min_above = root.bytes - MAX_USABLE_SPACE
+    Node.traverse(root, root.bytes) do |curr_min_above, node|
+      next curr_min_above if node.bytes < target_min_above
+      next curr_min_above if node.bytes >= curr_min_above
 
-    curr_min_above = root.bytes
-    Node.traverse(root) do |node|
-      next if node.bytes < target_min_above
-      next if node.bytes >= curr_min_above
-
-      curr_min_above = node.bytes
+      node.bytes
     end
+  end
 
-    curr_min_above
+  def build_tree(input)
+    root = curr_node = Node.init('/')
+
+    input
+      .split("\n$ ")
+      .tap { _1.shift } # Discard the "$ cd /"
+      .each do |command|
+        case command
+        in 'cd ..'
+          curr_node = curr_node.parent
+        in 'cd /'
+          curr_node = root
+        in /^cd/
+          dirname = command.match(/cd (.+)/)[1]
+
+          curr_node = curr_node.children.find { _1.name == dirname }
+        in /^ls/
+          nodes = command
+                  .split("\n")
+                  .tap { _1.shift } # Discard the ls
+                  .map { |content| Node.create_from(content, curr_node) }
+          curr_node.children.concat(nodes)
+        else
+          raise "What is this command?? \"#{command}\""
+        end
+      end
+
+    root
   end
 
   def parse(raw_input)
