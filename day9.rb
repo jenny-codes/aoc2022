@@ -12,16 +12,22 @@ Coord = Data.define(:x, :y) do
     diff_x = other_coord.x - x
     diff_y = other_coord.y - y
     new_x, new_y = case [diff_x.abs, diff_y.abs]
+                   in [2, 2]
+                     [x + (diff_x / 2), y + (diff_y / 2)]
                    in [2, 1]
                      [x + (diff_x / 2), y + diff_y]
                    in [1, 2]
                      [x + diff_x, y + (diff_y / 2)]
-                   in [2, _]
+                   in [2, 0]
                      [x + (diff_x / 2), y]
-                   in [_, 2]
+                   in [0, 2]
                      [x, y + (diff_y / 2)]
                    end
     Coord.new(new_x, new_y)
+  end
+
+  def inspect
+    [x, y]
   end
 end
 
@@ -36,21 +42,29 @@ Motion = Data.define(:direction, :step)
 
 class Day9 < Runner
   def do_puzzle1
-    h = t = Coord.new(0, 0)
-    @input.each_with_object(Set.new) do |motion, visited|
-      motion.step.times do
-        h = MOVE[motion.direction][h]
-        next if t.close_enough?(h)
-
-        t = t.move_close_to(h)
-        visited << t
-      end
-      visited
-    end.count
+    calculate_tail_visited(@input, 2).count
   end
 
   def do_puzzle2
-    'Not yet implemented'
+    calculate_tail_visited(@input, 10).count
+  end
+
+  def calculate_tail_visited(input, snake_length)
+    snake = [Coord.new(0, 0)] * snake_length
+    input.each_with_object(Set.new) do |motion, visited|
+      motion.step.times do
+        snake[0] = MOVE[motion.direction][snake.first]
+
+        snake_length.times.each_cons(2) do |ahead, behind|
+          break if snake[behind].close_enough?(snake[ahead])
+
+          snake[behind] = snake[behind].move_close_to(snake[ahead])
+        end
+
+        visited << snake.last
+      end
+      visited
+    end
   end
 
   def parse(raw_input)
