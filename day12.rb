@@ -58,6 +58,10 @@ class HeightMap
     end
   end
 
+  def find(coord)
+    @lookup.fetch(coord)
+  end
+
   def inspect
     'Muted height map'
   end
@@ -66,24 +70,23 @@ end
 class Day12 < Runner
   def do_puzzle1
     height_map = HeightMap.from(@input)
-    steps = climb(height_map, {}, height_map.start, 0)
-    steps[height_map.finish]
+    climb(height_map, { height_map.start => 0 }, [height_map.start], 1)
   end
 
-  def climb(height_map, steps, curr_coord, curr_step)
-    # puts "#{curr_coord}, #{steps[curr_coord]}"
-    # return steps if steps[height_map.finish]
+  def climb(height_map, steps, curr_coords, curr_step)
+    nexts = curr_coords.flat_map do |c|
+      height_map.neighbors_of(c).filter_map do |n|
+        return curr_step if n == height_map.finish
 
-    existing_step = steps[curr_coord]
-    return steps if existing_step && existing_step <= curr_step
+        next false if steps[n] && steps[n] <= curr_step
+        next false if height_map.find(n).too_steep_from?(height_map.find(c))
 
-    steps[curr_coord] = curr_step
-
-    height_map.neighbors_of(curr_coord).reduce(steps) do |memo, next_coord|
-      next memo if height_map.lookup[next_coord].too_steep_from?(height_map.lookup[curr_coord])
-
-      climb(height_map, memo, next_coord, curr_step + 1)
+        steps[n] = curr_step
+        n
+      end
     end
+
+    climb(height_map, steps, nexts, curr_step + 1)
   end
 
   def do_puzzle2
