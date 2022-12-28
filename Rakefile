@@ -2,10 +2,12 @@
 
 task default: %w[run]
 
-desc 'Run the code in a given file. Defaults to today'
-task :run, [:file] do |_t, args|
+desc 'Run the code in a given file. Defaults to today' \
+  'For real input, put it in ./data/day[NUM].txt' \
+  'For example input, put it in ./data/day[NUM].example'
+task :run, [:file, :is_example] do |_t, args|
   code_path = args.file || "day#{Time.now.day}.rb"
-  raw_input = read_input(code_path)
+  raw_input = read_input_for(code_path, args.is_example)
   runner = fetch_runner(code_path).new(raw_input)
 
   output1 = runner.do_puzzle1
@@ -13,6 +15,7 @@ task :run, [:file] do |_t, args|
 
   print_output('puzzle 1', output1)
   print_output('puzzle 2', output2)
+  puts "\n"
 end
 
 desc 'Setup files for the day. Need AOC_SESSION_TOKEN env var.'
@@ -35,9 +38,10 @@ end
 # =========================================
 # Helper functions
 
-def read_input(source_code_path)
+def read_input_for(source_code_path, is_example)
+  ext = is_example ? 'example' : 'txt'
   filename = /day\d*/.match(source_code_path)[0]
-  input_path = "data/#{filename}.txt"
+  input_path = "data/#{filename}.#{ext}"
   File.read(input_path)
 end
 
